@@ -60,8 +60,8 @@ yarn install
 Create a `.env` file in the root directory:
 
 ```env
-STRAVA_CLIENT_ID=your_client_id
-STRAVA_CLIENT_SECRET=your_client_secret
+NUXT_STRAVA_CLIENT_ID=your_client_id
+NUXT_STRAVA_CLIENT_SECRET=your_client_secret
 NUXT_PUBLIC_STRAVA_REDIRECT_URL=http://localhost:3000
 ```
 
