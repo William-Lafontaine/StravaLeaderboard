@@ -4,9 +4,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@pinia/nuxt", "@nuxtjs/tailwindcss"],
   runtimeConfig: {
-    apiBase: '/api',
     public: {
-      apiBase: '/api',
       STRAVA_CLIENT_ID: process.env.NUXT_STRAVA_CLIENT_ID
     },
   },

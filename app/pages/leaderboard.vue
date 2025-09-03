@@ -150,9 +150,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
-import { useAuth } from "@/composables/useAuth";
-
-const { getAccessToken } = useAuth();
 
 const start = ref(
   new Date(new Date().setDate(new Date().getDate() - 20))
