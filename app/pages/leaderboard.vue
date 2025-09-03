@@ -6,7 +6,13 @@
       </button>
       <div>
         {{ limitStatus }}
-        <input class="border border-gray-300" v-model="LIMIT" @update:modelValue="debouncedFetchActivities"></input>
+        <input class="border border-gray-300" v-model="LIMIT" @update:modelValue="debouncedFetchActivities" />
+      </div>
+      <div>
+        <label for="club-select" class="mr-2">Select Club:</label>
+        <select id="club-select" v-model="clubId" @change="onClubChange" class="border border-gray-300 px-2 py-1 rounded">
+          <option v-for="club in availableClubs" :key="club.id" :value="club.id">{{ club.name }}</option>
+        </select>
       </div>
     </div>
 
@@ -146,7 +152,7 @@ import { ref, onMounted, computed, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import { useAuth } from "@/composables/useAuth";
 
-const { getAccessToken, setAccessToken } = useAuth();
+const { getAccessToken } = useAuth();
 
 const start = ref(
   new Date(new Date().setDate(new Date().getDate() - 20))
@@ -157,33 +163,28 @@ const end = ref(new Date().toISOString().slice(0, 10));
 const rows = ref<{ athleteId: string; totalKm: number }[]>([]);
 const loading = ref(false);
 
-const disconnectStrava = () => {
-  setAccessToken(null);
-  navigateTo("/stravaLogin", { replace: true });
-};
+const availableClubs = ref<{ id: string; name: string }[]>([]);
+const clubId = ref<string>("");
 
-// Handle OAuth redirect and save access token
-onMounted(() => {
-  const params = new URLSearchParams(window.location.search);
-  const payloadRaw = params.get("payload");
-  if (payloadRaw) {
-    try {
-      const payload = JSON.parse(decodeURIComponent(payloadRaw));
-      if (payload.accesstoken) {
-        setAccessToken(payload.accesstoken);
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-      }
-    } catch (e) {
-      console.error("Invalid OAuth payload", e);
+async function fetchAvailableClubs() {
+  try {
+    const response = await fetch("/api/me/clubs", {
+      method: "GET",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
+    const clubs = await response.json();
+    availableClubs.value = clubs.map((c: any) => ({ id: c.id?.toString(), name: c.name }));
+    if (clubs.length > 0) {
+      clubId.value = clubs[0].id?.toString();
+    }
+  } catch (error) {
+    console.error("Failed to fetch clubs:", error);
   }
-});
-
-const clubId = "piedsIntenses";
+}
 
 const allActivities = ref<any[]>([]);
 
@@ -217,15 +218,12 @@ const MAX_PER_PAGE = 200;//strava max per page api number
 async function fetchLIMITActivities() {
   allActivities.value = []; // Reset activities before fetching
   const totalLimit = LIMIT.value;
-  console.log('totalLimit', totalLimit);
   const pageCount = Math.ceil(totalLimit / MAX_PER_PAGE);
-  console.log('pageCount', pageCount);
   for (let page = 1; page <= pageCount; page++) {
     if (page === pageCount) {
-      // const remaining = (MAX_PER_PAGE - (totalLimit % MAX_PER_PAGE)) % MAX_PER_PAGE;
       const fullPageCount = Math.floor(totalLimit / MAX_PER_PAGE);
       const listedItemsPreviously = fullPageCount * MAX_PER_PAGE;
-      const remaining = totalLimit -  (listedItemsPreviously);
+      const remaining = totalLimit - listedItemsPreviously;
       await getRecentClubActivities(page, remaining);
     } else {
       await getRecentClubActivities(page, MAX_PER_PAGE);
@@ -234,23 +232,19 @@ async function fetchLIMITActivities() {
 }
 
 async function getRecentClubActivities(page: number = 1, limit = LIMIT.value) {
-  console.log('limit', limit);
-  const url = `https://www.strava.com/api/v3/clubs/${clubId}/activities?per_page=${limit}&page=${page}`;
-
+  const url = `/api/clubs/${clubId.value}/activities?per_page=${limit}&page=${page}`;
   try {
     loading.value = true;
     const response = await fetch(url, {
       method: "GET",
+      credentials: "include",
       headers: {
-        Authorization: `Bearer ${getAccessToken()}`,
         "Content-Type": "application/json",
       },
     });
-
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
-
     const activities = await response.json();
     allActivities.value = allActivities.value.concat(activities);
     return allActivities.value;
@@ -262,11 +256,6 @@ async function getRecentClubActivities(page: number = 1, limit = LIMIT.value) {
     loading.value = false;
   }
 }
-
-
-fetchLIMITActivities().then(() =>
-  console.log("Recent Club Activities:", allActivities.value)
-);
 
 function formatTime(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -404,21 +393,18 @@ const athleteLeaderboard = computed(() => {
 const clubMembers = ref([]);
 
 async function getClubMembers() {
-  const url = `https://www.strava.com/api/v3/clubs/${clubId}/members`;
-
+  const url = `/api/clubs/${clubId.value}/members`;
   try {
     const response = await fetch(url, {
       method: "GET",
+      credentials: "include",
       headers: {
-        Authorization: `Bearer ${getAccessToken()}`,
         "Content-Type": "application/json",
       },
     });
-
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
-
     const members = await response.json();
     clubMembers.value = members;
     return clubMembers.value;
@@ -428,9 +414,18 @@ async function getClubMembers() {
   }
 }
 
+function onClubChange() {
+  fetchLIMITActivities();
+  getClubMembers();
+}
+
 // Example usage: fetch members on mount
-onMounted(() => {
-  getClubMembers().then((data) => console.log("Club Members:", data));
+onMounted(async () => {
+  await fetchAvailableClubs();
+  if (clubId.value) {
+    await getClubMembers();
+    await fetchLIMITActivities();
+  }
 });
 </script>
 

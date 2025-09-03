@@ -4,9 +4,19 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@pinia/nuxt", "@nuxtjs/tailwindcss"],
   runtimeConfig: {
+    apiBase: '/api',
     public: {
-      STRAVA_CLIENT_ID: process.env.NUXT_STRAVA_CLIENT_ID,
-      STRAVA_CLIENT_SECRET: process.env.NUXT_STRAVA_CLIENT_SECRET,
+      apiBase: '/api',
+      STRAVA_CLIENT_ID: process.env.NUXT_STRAVA_CLIENT_ID
+    },
+  },
+  nitro: {
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        prependPath: true,
+      },
     },
   },
 });
